@@ -16,12 +16,12 @@ void Shader::SetBool(const std::string& name, bool value) const
 
 void Shader::SetFloat(const std::string& name, float value) const
 {
-    glUniform1i(glGetUniformLocation(id_, name.c_str()), value);
+    glUniform1f(glGetUniformLocation(id_, name.c_str()), value);
 }
 
 void Shader::SetInt(const std::string& name, int value) const
 {
-    glUniform1f(glGetUniformLocation(id_, name.c_str()), value);
+    glUniform1i(glGetUniformLocation(id_, name.c_str()), value);
 }
 
 void Shader::Use()
