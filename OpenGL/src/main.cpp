@@ -1,6 +1,10 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
+#include "glm/glm.hpp"
+#include "glm/gtc/matrix_transform.hpp"
+#include "glm/gtc/type_ptr.hpp"
+
 #include "stb_image.h"
 #include "shader.h"
 
@@ -123,6 +127,13 @@ int main()
     shader.SetInt("texture1", 0);
     shader.SetInt("texture2", 1);
 
+    glm::mat4 trans = glm::mat4(1.0f);
+    trans = glm::translate(trans, glm::vec3(0.5f, -0.5f, 0.0f));
+    trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
+
+    unsigned int transLocation = glGetUniformLocation(shader.id(), "transform");
+    glUniformMatrix4fv(transLocation, 1, GL_FALSE, glm::value_ptr(trans));
+
     while (!glfwWindowShouldClose(window))
     {
         processInput(window);
@@ -136,6 +147,14 @@ int main()
         glBindTexture(GL_TEXTURE_2D, texture2);
         
         shader.Use();
+
+        glm::mat4 trans = glm::mat4(1.0f);
+        trans = glm::translate(trans, glm::vec3(0.5f, -0.5f, 0.0f));
+        trans = glm::rotate(trans, (float)glfwGetTime(), glm::vec3(0.0f, 0.0f, 1.0f));
+
+        unsigned int transLocation = glGetUniformLocation(shader.id(), "transform");
+        glUniformMatrix4fv(transLocation, 1, GL_FALSE, glm::value_ptr(trans));
+
         glBindVertexArray(vertexArrayObject);
         glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, 0);
 
