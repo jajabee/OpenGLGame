@@ -1,5 +1,7 @@
 #pragma once
 
+#include <glm/glm.hpp>
+
 #include <glad/glad.h>
 
 #include <string>
@@ -12,6 +14,7 @@ public:
     void SetBool(const std::string& name, bool value) const;
     void SetFloat(const std::string& name, float value) const;
     void SetInt(const std::string& name, int value) const;
+    void SetMat4(const std::string& name, glm::mat4 value) const;
     void Use();
 
     inline unsigned int id() const { return id_; }
