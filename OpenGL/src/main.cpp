@@ -16,6 +16,13 @@ void processInput(GLFWwindow* window);
 const unsigned int SCREEN_WIDTH = 960;
 const unsigned int SCREEN_HEIGHT = 720;
 
+glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
+glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
+glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+float deltaTime = 0.0f;	// Time between current frame and last frame
+float lastFrame = 0.0f; // Time of last frame
+
 int main()
 {
     glfwInit();
@@ -105,6 +112,21 @@ int main()
         2, 3, 0
     };
 
+    // Positive z-value for transformation towards the screen.
+    glm::vec3 cameraPosition = glm::vec3(0.0f, 0.0f, 3.0f);
+
+    // The target the camera is facing.
+    glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
+    // The (reverse) camera direction.
+    glm::vec3 cameraDirection = glm::normalize(cameraPosition - cameraTarget);
+
+    // Cross-product to get the right facing vector.
+    glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
+    glm::vec3 cameraRight = glm::normalize(glm::cross(up, cameraDirection));
+
+    // Cross-product to get the left facing vector.
+    glm::vec3 cameraUp = glm::cross(cameraDirection, cameraRight);
+
     unsigned int vertexArrayObject;
     glGenVertexArrays(1, &vertexArrayObject);
     glBindVertexArray(vertexArrayObject);
@@ -177,6 +199,10 @@ int main()
 
     while (!glfwWindowShouldClose(window))
     {
+        float currentFrame = glfwGetTime();
+        deltaTime = currentFrame - lastFrame;
+        lastFrame = currentFrame;
+
         processInput(window);
 
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
@@ -190,8 +216,11 @@ int main()
         shader.Use();
 
         // View matrix: world -> camera
+        const float radius = 10.0f;
+        float camX = sin(glfwGetTime()) * radius;
+        float camZ = cos(glfwGetTime()) * radius;
         glm::mat4 view = glm::mat4(1.0f);
-        view = glm::translate(view, glm::vec3(0.0f, 0.0f, -3.0f));
+        view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
 
         // Projection matrix: camera -> clip
         glm::mat4 orthogonalProj = glm::ortho(0.0f, 960.0f, 0.0f, 720.0f, 0.1f, 100.0f);
@@ -237,4 +266,14 @@ void processInput(GLFWwindow* window)
     {
         glfwSetWindowShouldClose(window, true);
     }
+
+    const float cameraSpeed = static_cast<float>(2.5 * deltaTime); // adjust accordingly
+    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+        cameraPos += cameraSpeed * cameraFront;
+    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+        cameraPos -= cameraSpeed * cameraFront;
+    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+        cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+        cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
 }
