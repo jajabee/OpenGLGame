@@ -81,7 +81,7 @@ void Camera::ProcessMouseScroll(float yOffset)
 
 glm::mat4 Camera::view_matrix() const
 {
-    return glm::mat4();
+    return glm::lookAt(position_, position_ + front_, up_);
 }
 
 void Camera::UpdateCameraVectors()

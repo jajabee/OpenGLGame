@@ -6,6 +6,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "stb_image.h"
+#include "camera.h"
 #include "shader.h"
 
 #include <iostream>
@@ -18,17 +19,10 @@ void processInput(GLFWwindow* window);
 const unsigned int SCREEN_WIDTH = 960;
 const unsigned int SCREEN_HEIGHT = 720;
 
+Camera camera(glm::vec3(0.0f, 0.0f, 3.0f));
+
 float lastX = SCREEN_WIDTH / 2;
 float lastY = SCREEN_HEIGHT / 2;
-
-glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
-glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
-glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
-
-float yaw = -90.0f; // Default to point towards negative z-axis.
-float pitch = 0.0f;
-
-float fov = 45.0f;
 
 bool isFirstCursorPos = true;
 
@@ -130,21 +124,6 @@ int main()
         2, 3, 0
     };
 
-    // Positive z-value for transformation towards the screen.
-    glm::vec3 cameraPosition = glm::vec3(0.0f, 0.0f, 3.0f);
-
-    // The target the camera is facing.
-    glm::vec3 cameraTarget = glm::vec3(0.0f, 0.0f, 0.0f);
-    // The (reverse) camera direction.
-    glm::vec3 cameraDirection = glm::normalize(cameraPosition - cameraTarget);
-
-    // Cross-product to get the right facing vector.
-    glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f);
-    glm::vec3 cameraRight = glm::normalize(glm::cross(up, cameraDirection));
-
-    // Cross-product to get the left facing vector.
-    glm::vec3 cameraUp = glm::cross(cameraDirection, cameraRight);
-
     unsigned int vertexArrayObject;
     glGenVertexArrays(1, &vertexArrayObject);
     glBindVertexArray(vertexArrayObject);
@@ -233,20 +212,13 @@ int main()
         
         shader.Use();
 
-        // View matrix: world -> camera
-        const float radius = 10.0f;
-        float camX = sin(glfwGetTime()) * radius;
-        float camZ = cos(glfwGetTime()) * radius;
-        glm::mat4 view = glm::mat4(1.0f);
-        view = glm::lookAt(cameraPos, cameraPos + cameraFront, cameraUp);
-
-        // Projection matrix: camera -> clip
-        glm::mat4 orthogonalProj = glm::ortho(0.0f, 960.0f, 0.0f, 720.0f, 0.1f, 100.0f);
-        glm::mat4 perspectiveProj = glm::perspective(glm::radians(fov), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 100.0f);
-
-        // Set uniforms for transformation matrices
+        // Create camera/view matrix and pass it to shader.
+        glm::mat4 view = camera.view_matrix();
         shader.SetMat4("view", view);
-        shader.SetMat4("projection", perspectiveProj);
+
+        // Create projection matrix and pass it to shader.
+        glm::mat4 projection = glm::perspective(glm::radians(camera.zoom()), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 100.0f);
+        shader.SetMat4("projection", projection);
 
         glBindVertexArray(vertexArrayObject);
 
@@ -255,7 +227,7 @@ int main()
             // calculate the model matrix for each object and pass it to shader before drawing
             glm::mat4 model = glm::mat4(1.0f);
             model = glm::translate(model, cubePositions[i]);
-            float angle = glfwGetTime() * 25.0f;
+            float angle = glfwGetTime() * 20.0f;
             model = glm::rotate(model, glm::radians(angle), glm::vec3(1.0f, 0.3f, 0.5f));
             shader.SetMat4("model", model);
 
@@ -280,54 +252,28 @@ void framebufferSizeCallback(GLFWwindow* window, int width, int height)
 
 void cursorPositionCallback(GLFWwindow* window, double xPos, double yPos)
 {
+    float x = static_cast<float>(xPos);
+    float y = static_cast<float>(yPos);
+
     if (isFirstCursorPos)
     {
-        lastX = xPos;
-        lastY = yPos;
+        lastX = x;
+        lastY = y;
         isFirstCursorPos = false;
     }
 
-    float xOffset = xPos - lastX;
-    float yOffset = lastY - yPos;
-    lastX = xPos;
-    lastY = yPos;
+    float xOffset = x - lastX;
+    float yOffset = lastY - y; // Reversed because y-coordinates start at bottom.
 
-    const float sensitivity = 0.1f;
-    xOffset *= sensitivity;
-    yOffset *= sensitivity;
+    lastX = x;
+    lastY = y;
 
-    yaw += xOffset;
-    pitch += yOffset;
-
-    if (pitch > 89.0f)
-    {
-        pitch = 89.0f;
-    }
-    if (pitch < -89.0f)
-    {
-        pitch = -89.0f;
-    }
-
-    // Calculate camera direction including yaw and pitch
-    glm::vec3 direction;
-    direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
-    direction.y = sin(glm::radians(pitch));
-    direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
-    cameraFront = glm::normalize(direction);
+    camera.ProcessMouseMovement(xOffset, yOffset);
 }
 
 void scrollCallback(GLFWwindow* window, double xOffset, double yOffset)
 {
-    fov -= (float)yOffset;
-
-    if (fov < 1.0f)
-    {
-        fov = 1.0f;
-    }
-    if (fov > 45.0f)
-    {
-        fov = 45.0f;
-    }
+    camera.ProcessMouseScroll(static_cast<float>(yOffset));
 }
 
 void processInput(GLFWwindow* window)
@@ -337,13 +283,12 @@ void processInput(GLFWwindow* window)
         glfwSetWindowShouldClose(window, true);
     }
 
-    const float cameraSpeed = static_cast<float>(2.5 * deltaTime); // adjust accordingly
     if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        cameraPos += cameraSpeed * cameraFront;
+        camera.ProcessKeyboard(kForward, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        cameraPos -= cameraSpeed * cameraFront;
+        camera.ProcessKeyboard(kBackward, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        cameraPos -= glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+        camera.ProcessKeyboard(kLeft, deltaTime);
     if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        cameraPos += glm::normalize(glm::cross(cameraFront, cameraUp)) * cameraSpeed;
+        camera.ProcessKeyboard(kRight, deltaTime);
 }

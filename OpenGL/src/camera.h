@@ -32,6 +32,8 @@ public:
     void ProcessMouseScroll(float yOffset);
 
     glm::mat4 view_matrix() const;
+    
+    inline float zoom() const { return zoom_; }
 
 private:
     void UpdateCameraVectors();
