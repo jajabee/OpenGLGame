@@ -11,14 +11,26 @@
 #include <iostream>
 
 void framebufferSizeCallback(GLFWwindow* window, int width, int height);
+void cursorPositionCallback(GLFWwindow* window, double xPos, double yPos);
+void scrollCallback(GLFWwindow* window, double xOffset, double yOffset);
 void processInput(GLFWwindow* window);
 
 const unsigned int SCREEN_WIDTH = 960;
 const unsigned int SCREEN_HEIGHT = 720;
 
+float lastX = SCREEN_WIDTH / 2;
+float lastY = SCREEN_HEIGHT / 2;
+
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
 glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
+
+float yaw = -90.0f; // Default to point towards negative z-axis.
+float pitch = 0.0f;
+
+float fov = 45.0f;
+
+bool isFirstCursorPos = true;
 
 float deltaTime = 0.0f;	// Time between current frame and last frame
 float lastFrame = 0.0f; // Time of last frame
@@ -38,7 +50,10 @@ int main()
         return -1;
     }
     glfwMakeContextCurrent(window);
+
     glfwSetFramebufferSizeCallback(window, framebufferSizeCallback);
+    glfwSetCursorPosCallback(window, cursorPositionCallback);
+    glfwSetScrollCallback(window, scrollCallback);
 
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
     {
@@ -46,7 +61,10 @@ int main()
         return -1;
     }
 
+    // Enable depth-buffer
     glEnable(GL_DEPTH_TEST);
+    // Hide the mouse cursor and capture it.
+    glfwSetInputMode(window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 
     Shader shader("res/shaders/vertex.glsl", "res/shaders/fragment.glsl");
 
@@ -224,7 +242,7 @@ int main()
 
         // Projection matrix: camera -> clip
         glm::mat4 orthogonalProj = glm::ortho(0.0f, 960.0f, 0.0f, 720.0f, 0.1f, 100.0f);
-        glm::mat4 perspectiveProj = glm::perspective(glm::radians(45.0f), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 100.0f);
+        glm::mat4 perspectiveProj = glm::perspective(glm::radians(fov), (float)SCREEN_WIDTH / (float)SCREEN_HEIGHT, 0.1f, 100.0f);
 
         // Set uniforms for transformation matrices
         shader.SetMat4("view", view);
@@ -258,6 +276,58 @@ int main()
 void framebufferSizeCallback(GLFWwindow* window, int width, int height)
 {
     glViewport(0, 0, width, height);
+}
+
+void cursorPositionCallback(GLFWwindow* window, double xPos, double yPos)
+{
+    if (isFirstCursorPos)
+    {
+        lastX = xPos;
+        lastY = yPos;
+        isFirstCursorPos = false;
+    }
+
+    float xOffset = xPos - lastX;
+    float yOffset = lastY - yPos;
+    lastX = xPos;
+    lastY = yPos;
+
+    const float sensitivity = 0.1f;
+    xOffset *= sensitivity;
+    yOffset *= sensitivity;
+
+    yaw += xOffset;
+    pitch += yOffset;
+
+    if (pitch > 89.0f)
+    {
+        pitch = 89.0f;
+    }
+    if (pitch < -89.0f)
+    {
+        pitch = -89.0f;
+    }
+
+    // Calculate camera direction including yaw and pitch
+    glm::vec3 direction;
+    direction.x = cos(glm::radians(yaw)) * cos(glm::radians(pitch));
+    direction.y = sin(glm::radians(pitch));
+    direction.z = sin(glm::radians(yaw)) * cos(glm::radians(pitch));
+    cameraFront = glm::normalize(direction);
+}
+
+void scrollCallback(GLFWwindow* window, double xOffset, double yOffset)
+{
+    fov -= (float)yOffset;
+
+    if (fov < 1.0f)
+    {
+        fov = 1.0f;
+    }
+    if (fov > 45.0f)
+    {
+        fov = 45.0f;
+    }
 }
 
 void processInput(GLFWwindow* window)
